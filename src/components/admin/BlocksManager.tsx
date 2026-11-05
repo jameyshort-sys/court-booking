@@ -106,30 +106,40 @@ export function BlocksManager({
               .finally(() => setBusy(false));
           }}
         >
-          <label className="sm:col-span-2">
-            <span className={labelClass}>Amenity</span>
-            <select
-              className={fieldClass}
-              value={courtId}
-              disabled={allAmenities}
-              onChange={(event) => setCourtId(event.target.value)}
-            >
-              {amenities.map((amenity) => (
-                <option key={amenity.id} value={amenity.id}>
-                  {amenity.name}
-                  {amenity.active ? "" : " (disabled)"}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2">
-            <input
-              type="checkbox"
-              checked={allAmenities}
-              onChange={(event) => setAllAmenities(event.target.checked)}
-            />
-            Apply to every active amenity
-          </label>
+          <fieldset className="space-y-2 sm:col-span-2">
+            <legend className={labelClass}>Which amenities</legend>
+            <label className="flex items-center gap-2 text-sm text-slate-700" htmlFor="all-amenities">
+              <input
+                id="all-amenities"
+                type="checkbox"
+                checked={allAmenities}
+                onChange={(event) => setAllAmenities(event.target.checked)}
+              />
+              Block every active amenity ({amenities.filter((item) => item.active).length})
+            </label>
+            {allAmenities ? (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                One block will be saved on each active amenity. The single-amenity list is not used.
+              </p>
+            ) : (
+              <label>
+                <span className={labelClass}>Amenity</span>
+                <select
+                  className={fieldClass}
+                  value={courtId}
+                  onChange={(event) => setCourtId(event.target.value)}
+                  required
+                >
+                  {amenities.map((amenity) => (
+                    <option key={amenity.id} value={amenity.id}>
+                      {amenity.name}
+                      {amenity.active ? "" : " (disabled)"}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </fieldset>
           <label>
             <span className={labelClass}>Date</span>
             <input

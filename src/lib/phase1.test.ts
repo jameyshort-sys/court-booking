@@ -234,9 +234,22 @@ test("admin services cover club setup, import, and rain-outs", async () => {
   const second = await prisma.user.findFirst({
     where: { clubId: club.id, email: "second@test.local" },
   });
-  assert.equal(second?.status, "ACTIVE");
-  assert.equal(second?.role, "DIRECTOR");
-  assert.equal(second?.passwordHash, null);
+  if (!second) throw new Error("imported member missing");
+  assert.equal(second.status, "ACTIVE");
+  assert.equal(second.role, "DIRECTOR");
+  assert.equal(second.passwordHash, null);
+
+  const withPassword = await service.updateMember(actor, second.id, {
+    password: "temporary1",
+  });
+  assert.equal(withPassword.member.hasPassword, true);
+  const stored = await prisma.user.findUnique({ where: { id: second.id } });
+  const bcrypt = await import("bcryptjs");
+  assert.equal(await bcrypt.compare("temporary1", stored?.passwordHash ?? ""), true);
+  await assert.rejects(
+    () => service.updateMember(actor, second.id, { password: "short" }),
+    /8 to 72/,
+  );
 
   const again = await service.commitMemberImport(
     actor,

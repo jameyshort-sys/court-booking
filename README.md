@@ -29,10 +29,12 @@ cp .env.example .env
 # set AUTH_SECRET to a long random string
 npx prisma db push
 npm run db:seed
-npm run dev
+npm run build && npm start
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+`npm run dev` is fine for most work. Turbopack sometimes fails to attach click handlers, so an admin form appears to do nothing and the address bar gains a lone `?`. If that happens, restart the dev server, or use the production build above for demos. `npm start` is the path QA used.
 
 | Command | Purpose |
 |---------|---------|
@@ -56,7 +58,9 @@ Password for every active seeded account: **`password123`**
 | `member2@democlub.local` | Member |
 | `pending@democlub.local` | Pending approval, no password |
 
-Admins and directors can still open Schedule, Book, and Mine. Members cannot open `/admin`.
+Inside `/admin`, the top bar shows **Member schedule** and hides Book / Mine so it is not a second Schedule. Court occupancy (`/admin/schedule`) is the read-only staff view. Members cannot open `/admin`.
+
+Staff can set a temporary password on a member row (`PATCH /api/admin/members/[id]` with `{ "password": "..." }`, 8–72 characters). Pending and rejected accounts still cannot sign in until they are approved.
 
 ## Phase 1 admin portal
 
@@ -68,7 +72,7 @@ Admins and directors can still open Schedule, Book, and Mine. Members cannot ope
 | Members (invite, approve, reject, role, deactivate) | `/admin/members` |
 | Bulk CSV / XLSX import | `/admin/members/import` |
 | Blocks and rain-outs | `/admin/blocks` |
-| Read-only schedule | `/admin/schedule` |
+| Court occupancy (read-only) | `/admin/schedule` |
 | Club settings | `/admin/settings` |
 
 ### APIs

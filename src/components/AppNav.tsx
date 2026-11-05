@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth, signOut } from "@/auth";
+import { AppNavLinks } from "@/components/AppNavLinks";
 import { prisma } from "@/lib/prisma";
 
 export async function AppNav() {
@@ -31,33 +32,8 @@ export async function AppNav() {
             {roleLabel ? ` · ${roleLabel}` : ""}
           </p>
         </div>
-        <nav className="flex shrink-0 items-center gap-1 text-sm sm:gap-2">
-          {staff ? (
-            <Link
-              href="/admin"
-              className="rounded-lg px-2 py-1.5 font-medium text-emerald-800 hover:bg-emerald-50 sm:px-3"
-            >
-              Admin
-            </Link>
-          ) : null}
-          <Link
-            href="/schedule"
-            className="rounded-lg px-2 py-1.5 text-slate-700 hover:bg-slate-100 sm:px-3"
-          >
-            Schedule
-          </Link>
-          <Link
-            href="/book"
-            className="rounded-lg px-2 py-1.5 text-slate-700 hover:bg-slate-100 sm:px-3"
-          >
-            Book
-          </Link>
-          <Link
-            href="/reservations"
-            className="rounded-lg px-2 py-1.5 text-slate-700 hover:bg-slate-100 sm:px-3"
-          >
-            Mine
-          </Link>
+        <div className="flex shrink-0 items-center gap-1 text-sm sm:gap-2">
+          <AppNavLinks staff={staff} />
           <form
             action={async () => {
               "use server";
@@ -71,7 +47,7 @@ export async function AppNav() {
               Log out
             </button>
           </form>
-        </nav>
+        </div>
       </div>
     </header>
   );

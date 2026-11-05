@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { AdminError } from "@/lib/admin-error";
 import {
@@ -60,6 +61,7 @@ function serializeMember(user: {
   status: string;
   invitedAt: Date | null;
   createdAt: Date;
+  passwordHash?: string | null;
 }) {
   return {
     id: user.id,
@@ -69,6 +71,7 @@ function serializeMember(user: {
     status: user.status,
     invitedAt: user.invitedAt?.toISOString() ?? null,
     createdAt: user.createdAt.toISOString(),
+    hasPassword: Boolean(user.passwordHash),
   };
 }
 
@@ -347,6 +350,7 @@ export async function listMembers(clubId: string, status?: string | null) {
       status: true,
       invitedAt: true,
       createdAt: true,
+      passwordHash: true,
     },
   });
   members.sort((a, b) => {
@@ -458,9 +462,28 @@ export async function updateMember(
 
   await assertKeepsAdmin(actor.clubId, member, nextRole, nextStatus);
 
+  let passwordHash: string | undefined;
+  if ("password" in input && input.password != null && String(input.password) !== "") {
+    const password = String(input.password);
+    if (password.length < 8 || password.length > 72) {
+      throw new AdminError(400, "Password must be 8 to 72 characters");
+    }
+    passwordHash = await bcrypt.hash(password, 10);
+  }
+
+  const roleProvided = "role" in input;
+  const statusProvided = "status" in input;
+  if (!roleProvided && !statusProvided && !passwordHash) {
+    throw new AdminError(400, "Nothing to update");
+  }
+
   const updated = await prisma.user.update({
     where: { id: member.id },
-    data: { role: nextRole, status: nextStatus },
+    data: {
+      role: nextRole,
+      status: nextStatus,
+      ...(passwordHash ? { passwordHash } : {}),
+    },
   });
   return { member: serializeMember(updated) };
 }

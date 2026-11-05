@@ -25,6 +25,7 @@ export type MemberRow = {
   status: string;
   invitedAt: string | null;
   createdAt: string;
+  hasPassword: boolean;
 };
 
 const FILTERS = [
@@ -54,6 +55,8 @@ export function MembersManager({
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [invite, setInvite] = useState({ email: "", name: "", role: "MEMBER" });
+  const [roleDrafts, setRoleDrafts] = useState<Record<string, string>>({});
+  const [passwords, setPasswords] = useState<Record<string, string>>({});
 
   const counts = useMemo(() => {
     const tally: Record<string, number> = { "": members.length };
@@ -82,7 +85,7 @@ export function MembersManager({
     <div className="space-y-4">
       <PageHeader
         title="Members"
-        description="Invite people, approve requests, and set who can administer the club."
+        description="Invite people, approve them, then set a temporary password so they can sign in. Email is not sent in this phase."
         action={
           <Link href="/admin/members/import" className={primaryButtonClass}>
             Bulk import
@@ -95,8 +98,8 @@ export function MembersManager({
       <Panel>
         <h2 className="text-sm font-semibold text-slate-900">Invite a member</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Invites are stored as pending. Email delivery is not configured in this phase,
-          so the member cannot sign in until you approve them and a password is set.
+          Invites stay pending until you approve them. Use Set password on their row
+          after that — pending and rejected accounts cannot sign in even with a password.
         </p>
         <form
           className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_140px_auto] sm:items-end"
@@ -178,13 +181,14 @@ export function MembersManager({
               <th className="px-3 py-2">Member</th>
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Role</th>
+              <th className="px-3 py-2">Sign-in</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
               <tr>
-                <td className="px-3 py-6 text-slate-500" colSpan={4}>
+                <td className="px-3 py-6 text-slate-500" colSpan={5}>
                   No members in this view.
                 </td>
               </tr>
@@ -211,28 +215,107 @@ export function MembersManager({
                       <StatusPill status={member.status} />
                     </td>
                     <td className="px-3 py-3">
-                      <select
-                        className={fieldClass}
-                        aria-label={`Role for ${member.name}`}
-                        value={member.role}
-                        disabled={busy || isSelf}
-                        onChange={(event) => {
-                          const role = event.target.value as Role;
+                      {isSelf ? (
+                        <p className="text-sm text-slate-700">
+                          {member.role}
+                          <span className="mt-1 block text-xs text-slate-400">
+                            You can&apos;t change your own role.
+                          </span>
+                        </p>
+                      ) : (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select
+                            className={fieldClass}
+                            aria-label={`Role for ${member.name}`}
+                            value={roleDrafts[member.id] ?? member.role}
+                            disabled={busy}
+                            onChange={(event) =>
+                              setRoleDrafts((current) => ({
+                                ...current,
+                                [member.id]: event.target.value,
+                              }))
+                            }
+                          >
+                            {ROLES.map((role) => (
+                              <option key={role} value={role}>
+                                {role}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            className={secondaryButtonClass}
+                            disabled={
+                              busy || (roleDrafts[member.id] ?? member.role) === member.role
+                            }
+                            onClick={() => {
+                              const role = (roleDrafts[member.id] ?? member.role) as Role;
+                              void run(async () => {
+                                await adminFetch(`/api/admin/members/${member.id}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ role }),
+                                });
+                                setRoleDrafts((current) => {
+                                  const next = { ...current };
+                                  delete next[member.id];
+                                  return next;
+                                });
+                                return `${member.name} is now ${role}.`;
+                              });
+                            }}
+                          >
+                            Save role
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="text-xs text-slate-500">
+                        {member.hasPassword ? "Password set" : "No password yet"}
+                      </p>
+                      {member.status === "PENDING" || member.status === "REJECTED" ? (
+                        <p className="mt-1 text-xs text-slate-400">
+                          Approve them before this password can be used.
+                        </p>
+                      ) : null}
+                      <form
+                        className="mt-2 flex flex-wrap items-center gap-2"
+                        onSubmit={(event) => {
+                          event.preventDefault();
+                          const password = passwords[member.id] ?? "";
                           void run(async () => {
                             await adminFetch(`/api/admin/members/${member.id}`, {
                               method: "PATCH",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ role }),
+                              body: JSON.stringify({ password }),
                             });
+                            setPasswords((current) => ({ ...current, [member.id]: "" }));
+                            return member.status === "ACTIVE"
+                              ? `Password set for ${member.name}. They can sign in with it now.`
+                              : `Password saved for ${member.name}. They can sign in after you approve them.`;
                           });
                         }}
                       >
-                        {ROLES.map((role) => (
-                          <option key={role} value={role}>
-                            {role}
-                          </option>
-                        ))}
-                      </select>
+                        <input
+                          className={fieldClass}
+                          type="password"
+                          autoComplete="new-password"
+                          minLength={8}
+                          placeholder="Temporary password"
+                          aria-label={`Temporary password for ${member.name}`}
+                          value={passwords[member.id] ?? ""}
+                          onChange={(event) =>
+                            setPasswords((current) => ({
+                              ...current,
+                              [member.id]: event.target.value,
+                            }))
+                          }
+                        />
+                        <button className={secondaryButtonClass} type="submit" disabled={busy}>
+                          Set password
+                        </button>
+                      </form>
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-1">

@@ -58,7 +58,7 @@ export default async function AdminHomePage() {
         </Link>
         <Link href="/admin/schedule" className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300">
           <div className="text-2xl font-semibold text-slate-900">{dashboard.todayBookings}</div>
-          <div className="text-sm text-slate-500">Bookings today</div>
+          <div className="text-sm text-slate-500">Court occupancy today</div>
         </Link>
       </div>
 

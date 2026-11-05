@@ -45,7 +45,11 @@ export function Alert({
       : kind === "success"
         ? "border-emerald-100 bg-emerald-50 text-emerald-800"
         : "border-slate-200 bg-slate-50 text-slate-600";
-  return <div className={`rounded-lg border px-3 py-2 text-sm ${tone}`}>{children}</div>;
+  return (
+    <div role="status" className={`rounded-lg border px-3 py-2 text-sm ${tone}`}>
+      {children}
+    </div>
+  );
 }
 
 export function Panel({ children }: { children: ReactNode }) {

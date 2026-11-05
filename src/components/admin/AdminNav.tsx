@@ -10,7 +10,7 @@ const LINKS = [
   { href: "/admin/members", label: "Members" },
   { href: "/admin/members/import", label: "Import" },
   { href: "/admin/blocks", label: "Blocks" },
-  { href: "/admin/schedule", label: "Schedule" },
+  { href: "/admin/schedule", label: "Court occupancy" },
   { href: "/admin/settings", label: "Club settings" },
 ];
 

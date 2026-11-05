@@ -26,9 +26,9 @@ export default async function AdminSchedulePage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold text-slate-900">Schedule overview</h1>
+        <h1 className="text-xl font-semibold text-slate-900">Court occupancy</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Read-only view of who is on which court. Booking and editing stay on the member schedule.
+          Staff view of who is on which court. To book or edit, use Member schedule in the top bar.
         </p>
       </div>
       <DateBar dateKey={overview.date} basePath="/admin/schedule" tz={overview.timezone} />

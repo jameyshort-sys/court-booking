@@ -34,18 +34,22 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
   const [name, setName] = useState("");
   const [type, setType] = useState<AmenityType>("TENNIS");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, { name: string; type: string }>>({});
 
   function draft(amenity: AmenityRow) {
     return drafts[amenity.id] ?? { name: amenity.name, type: amenity.type };
   }
 
-  async function run(task: () => Promise<void>) {
+  async function run(task: () => Promise<string | void>) {
     setError(null);
+    setNotice(null);
     setBusy(true);
     try {
-      await task();
+      const message = await task();
+      if (message) setNotice(message);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");
@@ -61,6 +65,7 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
         description="Courts and other bookable spaces. Disabling an amenity keeps its history and stops new bookings."
       />
       {error ? <Alert kind="error">{error}</Alert> : null}
+      {notice ? <Alert kind="success">{notice}</Alert> : null}
 
       <Panel>
         <form
@@ -74,6 +79,7 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
                 body: JSON.stringify({ name, type }),
               });
               setName("");
+              return `${name.trim()} added.`;
             });
           }}
         >
@@ -134,6 +140,7 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
               </tr>
             ) : (
               amenities.map((amenity, index) => {
+                const editing = editingId === amenity.id;
                 const row = draft(amenity);
                 return (
                   <tr key={amenity.id} className="border-t border-slate-100">
@@ -144,7 +151,10 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
                           className={secondaryButtonClass}
                           disabled={busy || index === 0}
                           onClick={() =>
-                            void run(() => reorder(amenities, index, -1))
+                            void run(async () => {
+                              await reorder(amenities, index, -1);
+                              return "Order updated.";
+                            })
                           }
                         >
                           Up
@@ -154,7 +164,10 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
                           className={secondaryButtonClass}
                           disabled={busy || index === amenities.length - 1}
                           onClick={() =>
-                            void run(() => reorder(amenities, index, 1))
+                            void run(async () => {
+                              await reorder(amenities, index, 1);
+                              return "Order updated.";
+                            })
                           }
                         >
                           Down
@@ -162,36 +175,44 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
                       </div>
                     </td>
                     <td className="px-3 py-2">
-                      <input
-                        className={fieldClass}
-                        value={row.name}
-                        aria-label={`Name for ${amenity.name}`}
-                        onChange={(event) =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [amenity.id]: { ...row, name: event.target.value },
-                          }))
-                        }
-                      />
+                      {editing ? (
+                        <input
+                          className={fieldClass}
+                          value={row.name}
+                          aria-label={`Name for ${amenity.name}`}
+                          onChange={(event) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [amenity.id]: { ...row, name: event.target.value },
+                            }))
+                          }
+                        />
+                      ) : (
+                        <span className="font-medium text-slate-900">{amenity.name}</span>
+                      )}
                     </td>
                     <td className="px-3 py-2">
-                      <select
-                        className={fieldClass}
-                        value={row.type}
-                        aria-label={`Type for ${amenity.name}`}
-                        onChange={(event) =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [amenity.id]: { ...row, type: event.target.value },
-                          }))
-                        }
-                      >
-                        {AMENITY_TYPES.map((option) => (
-                          <option key={option} value={option}>
-                            {TYPE_LABEL[option]}
-                          </option>
-                        ))}
-                      </select>
+                      {editing ? (
+                        <select
+                          className={fieldClass}
+                          value={row.type}
+                          aria-label={`Type for ${amenity.name}`}
+                          onChange={(event) =>
+                            setDrafts((current) => ({
+                              ...current,
+                              [amenity.id]: { ...row, type: event.target.value },
+                            }))
+                          }
+                        >
+                          {AMENITY_TYPES.map((option) => (
+                            <option key={option} value={option}>
+                              {TYPE_LABEL[option]}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        TYPE_LABEL[amenity.type] ?? amenity.type
+                      )}
                     </td>
                     <td className="px-3 py-2">
                       <span
@@ -206,30 +227,60 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
                     </td>
                     <td className="px-3 py-2">
                       <div className="flex flex-wrap gap-1">
-                        <button
-                          type="button"
-                          className={secondaryButtonClass}
-                          disabled={busy}
-                          onClick={() =>
-                            void run(async () => {
-                              await adminFetch(`/api/admin/amenities/${amenity.id}`, {
-                                method: "PATCH",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                  name: row.name,
-                                  type: row.type,
-                                }),
-                              });
-                              setDrafts((current) => {
-                                const next = { ...current };
-                                delete next[amenity.id];
-                                return next;
-                              });
-                            })
-                          }
-                        >
-                          Save
-                        </button>
+                        {editing ? (
+                          <>
+                            <button
+                              type="button"
+                              className={primaryButtonClass}
+                              disabled={busy}
+                              onClick={() =>
+                                void run(async () => {
+                                  await adminFetch(`/api/admin/amenities/${amenity.id}`, {
+                                    method: "PATCH",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      name: row.name,
+                                      type: row.type,
+                                    }),
+                                  });
+                                  setDrafts((current) => {
+                                    const next = { ...current };
+                                    delete next[amenity.id];
+                                    return next;
+                                  });
+                                  setEditingId(null);
+                                  return `Saved ${row.name.trim() || amenity.name}.`;
+                                })
+                              }
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              className={secondaryButtonClass}
+                              disabled={busy}
+                              onClick={() => {
+                                setDrafts((current) => {
+                                  const next = { ...current };
+                                  delete next[amenity.id];
+                                  return next;
+                                });
+                                setEditingId(null);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className={secondaryButtonClass}
+                            disabled={busy}
+                            onClick={() => setEditingId(amenity.id)}
+                          >
+                            Edit
+                          </button>
+                        )}
                         {amenity.active ? (
                           <button
                             type="button"
@@ -240,6 +291,7 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
                                 await adminFetch(`/api/admin/amenities/${amenity.id}`, {
                                   method: "DELETE",
                                 });
+                                return `${amenity.name} disabled. Existing bookings stay on the books.`;
                               })
                             }
                           >
@@ -257,6 +309,7 @@ export function AmenitiesManager({ amenities }: { amenities: AmenityRow[] }) {
                                   headers: { "Content-Type": "application/json" },
                                   body: JSON.stringify({ active: true }),
                                 });
+                                return `${amenity.name} is active again.`;
                               })
                             }
                           >
