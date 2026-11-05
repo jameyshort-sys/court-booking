@@ -1,0 +1,137 @@
+// Court Booking SaaS — Demo Club
+// groupId / seriesId reserved for Phase 2 member multi-court + recurring
+// Phase 1: admin portal (amenities, rules, members, import, blocks)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Club {
+  id           String         @id @default(cuid())
+  name         String
+  city         String?
+  state        String?
+  timezone     String         @default("America/New_York")
+  contactEmail String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  courts       Court[]
+  members      User[]
+  rules        ClubRules?
+  blocks       CourtBlock[]
+  imports      MemberImport[]
+}
+
+model ClubRules {
+  id                  String   @id @default(cuid())
+  clubId              String   @unique
+  club                Club     @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  advanceDays         Int      @default(14)
+  /// Minutes from midnight in the club timezone (7:00 = 420)
+  openMinutes         Int      @default(420)
+  closeMinutes        Int      @default(1260)
+  minDurationMinutes  Int      @default(30)
+  maxDurationMinutes  Int      @default(180)
+  maxConcurrentCourts Int      @default(2)
+  cancelCutoffMinutes Int      @default(60)
+  updatedAt           DateTime @updatedAt
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String
+  name          String
+  passwordHash  String?
+  /// MEMBER | DIRECTOR | ADMIN
+  role          String         @default("MEMBER")
+  /// PENDING | ACTIVE | REJECTED | DISABLED
+  status        String         @default("ACTIVE")
+  invitedAt     DateTime?
+  clubId        String
+  club          Club           @relation(fields: [clubId], references: [id])
+  reservations  Reservation[]
+  blocksCreated CourtBlock[]   @relation("BlocksCreated")
+  imports       MemberImport[]
+  createdAt     DateTime       @default(now())
+
+  @@unique([clubId, email])
+  @@index([clubId, status])
+}
+
+model Court {
+  id           String         @id @default(cuid())
+  clubId       String
+  club         Club           @relation(fields: [clubId], references: [id])
+  name         String
+  /// TENNIS | PICKLEBALL | OTHER
+  type         String
+  sortOrder    Int
+  active       Boolean        @default(true)
+  reservations Reservation[]
+  blocks       CourtBlock[]
+
+  @@index([clubId, sortOrder])
+}
+
+model Reservation {
+  id         String    @id @default(cuid())
+  courtId    String
+  court      Court     @relation(fields: [courtId], references: [id])
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  startAt    DateTime
+  endAt      DateTime
+  notes      String?
+  /// Phase 2: multi-court group (same note / edit / cancel)
+  groupId    String?
+  /// Phase 2: recurring series id
+  seriesId   String?
+  canceledAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([courtId, startAt])
+  @@index([userId, startAt])
+  @@index([groupId])
+  @@index([seriesId])
+}
+
+model CourtBlock {
+  id          String   @id @default(cuid())
+  clubId      String
+  club        Club     @relation(fields: [clubId], references: [id])
+  courtId     String
+  court       Court    @relation(fields: [courtId], references: [id])
+  startAt     DateTime
+  endAt       DateTime
+  reason      String
+  createdById String
+  createdBy   User     @relation("BlocksCreated", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([clubId, startAt])
+  @@index([courtId, startAt])
+}
+
+model MemberImport {
+  id          String   @id @default(cuid())
+  clubId      String
+  club        Club     @relation(fields: [clubId], references: [id])
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  /// invite | active | pending
+  mode        String
+  totalRows   Int
+  imported    Int
+  skipped     Int
+  errored     Int
+  errorRows   Json
+
+  @@index([clubId, createdAt])
+}

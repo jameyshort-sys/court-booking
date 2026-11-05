@@ -1,0 +1,10 @@
+{
+  "name": "Court Booking (pilot)",
+  "short_name": "Courts",
+  "description": "Demo Club court reservations",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#059669",
+  "icons": []
+}
